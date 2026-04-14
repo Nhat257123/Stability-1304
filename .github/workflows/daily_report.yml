@@ -1,0 +1,31 @@
+name: Daily Checkpoint Report
+
+on:
+  schedule:
+    # Chạy vào lúc 01:00 UTC mỗi ngày (tức 08:00 sáng giờ Việt Nam)
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+    # Cho phép chạy thủ công từ tab Actions trên GitHub để kiểm tra
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm install @supabase/supabase-js resend
+
+      - name: Run Daily Report Script
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: node scripts/daily_report.js
