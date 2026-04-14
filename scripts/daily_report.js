@@ -96,7 +96,7 @@ async function run() {
           </table>
 
           <div style="text-align: center; margin-top: 32px;">
-            <a href="https://aaaqwtbistexvdhoeplh.supabase.co/" style="background: #0d9488; color: #ffffff; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 14px;">Truy cập StabilityLab →</a>
+            <a href="https://stability-1304.vercel.app/" style="background: #0d9488; color: #ffffff; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 14px;">Truy cập StabilityLab →</a>
           </div>
         </div>
         <div style="background: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
