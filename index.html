@@ -153,7 +153,7 @@
       /* SAMPLES GRID */
       .samples-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 14px; }
       .samples-grid.list-mode { display: block; }
-      .sample-card { background: var(--surface); border-radius: var(--r-lg); border: 1px solid var(--border); box-shadow: var(--sh-xs); overflow: hidden; transition: 0.2s; cursor: pointer; display: flex; flex-direction: column; }
+      .sample-card { background: var(--surface); border-radius: var(--r-lg); border: 1px solid var(--border); box-shadow: var(--sh-xs); overflow: hidden; transition: 0.2s; cursor: pointer; display: flex; flex-direction: column; position: relative; }
       .sample-card:hover { box-shadow: var(--sh-md); transform: translateY(-2px); border-color: var(--border2); }
       .card-accent { height: 3px; }
       .card-accent.ac-soon { background: linear-gradient(90deg, var(--amber), #fbbf24); }
@@ -380,6 +380,46 @@
       .page-btn.active { background: var(--teal); color: #fff; border-color: var(--teal); box-shadow: 0 4px 10px rgba(13, 148, 136, 0.3); }
       .page-btn.nav { width: auto; padding: 0 14px; gap: 4px; font-size: 12px; }
       .page-btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+      /* SELECTION & BULK ACTIONS */
+      .selection-checkbox {
+        width: 18px; height: 18px; border-radius: 6px; border: 2px solid var(--border2);
+        background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        transition: all 0.2s; position: relative; z-index: 10;
+      }
+      .selection-checkbox.checked {
+        background: var(--teal); border-color: var(--teal); color: #fff;
+      }
+      .selection-checkbox svg { width: 12px; height: 12px; display: none; }
+      .selection-checkbox.checked svg { display: block; }
+
+      .card-selection-overlay {
+        position: absolute; top: 10px; left: 10px; z-index: 20;
+      }
+      .sample-card .card-meta { padding-left: 24px; }
+
+      .bulk-bar {
+        position: fixed; bottom: -80px; left: 50%; transform: translateX(-50%);
+        background: var(--navy); color: #fff; padding: 12px 24px; border-radius: 99px;
+        display: flex; align-items: center; gap: 20px; box-shadow: var(--sh-xl);
+        z-index: 450; transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+      .bulk-bar.active { bottom: 30px; }
+      .bulk-info { font-weight: 700; font-size: 14px; border-right: 1px solid rgba(255,255,255,0.2); padding-right: 20px; }
+      .bulk-actions { display: flex; gap: 8px; }
+      .btn-bulk-delete {
+        background: var(--rose); color: #fff; border: none; padding: 8px 16px;
+        border-radius: 20px; font-weight: 700; font-size: 13px; cursor: pointer;
+        display: flex; align-items: center; gap: 6px; transition: 0.2s;
+      }
+      .btn-bulk-delete:hover { background: var(--rose-d); transform: scale(1.05); }
+      .btn-bulk-cancel {
+        background: transparent; color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.3);
+        padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 13px; cursor: pointer;
+      }
+      .btn-bulk-cancel:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+      /* Customize checkbox in list view */
+      .list-selection-col { width: 32px; display: flex; align-items: center; justify-content: center; }
     </style>
   </head>
   <body>
@@ -610,6 +650,18 @@
     <!-- EDIT MODAL -->
     <div class="overlay hidden" id="editOverlay"><div class="modal edit-modal"><div class="modal-header"><div class="modal-title">Chỉnh sửa thông tin mẫu</div><button class="modal-close" onclick="closeEditModal()">✕</button></div><div class="modal-body"><div class="form-row"><div class="form-group"><label>Tên mẫu *</label><input type="text" id="e_name" /></div><div class="form-group"><label>Mã mẫu *</label><input type="text" id="e_code" /></div></div><div class="form-group"><label>Ghi chú cảm quan</label><textarea id="e_notes"></textarea></div></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeEditModal()">Hủy</button><button class="btn btn-primary" id="btnSaveEdit" onclick="saveEdit()">💾 Lưu thay đổi</button></div></div></div>
 
+    <!-- BULK ACTION BAR -->
+    <div class="bulk-bar" id="bulkBar">
+      <div class="bulk-info" id="bulkCount">Đã chọn 0 mẫu</div>
+      <div class="bulk-actions">
+        <button class="btn-bulk-cancel" onclick="clearSelection()">Hủy</button>
+        <button class="btn-bulk-delete" onclick="bulkDelete()">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M9 6V4h6v2" /></svg>
+          Xóa đã chọn
+        </button>
+      </div>
+    </div>
+
     <script>
       // ══════════════════════════════════════════════════════════
       //          CẤU HÌNH SUPABASE
@@ -687,6 +739,7 @@
       };
 
       let samples = [], currentFilter = "all", currentSampleId = null, currentCheckId = null, checkResult = null, addImgData = [], checkImgData = [], notifOpen = false, _confirmCallback = null;
+      let selectedIds = new Set();
       let addImgFiles = [], checkImgFiles = []; // Lưu trữ đối tượng File để upload
       let viewMode = "grid";
       let groupByStatus = false;
@@ -826,6 +879,76 @@
         hideSaving();
         if (error) { showToast("❌ Lỗi cập nhật: " + error.message, "error"); return false; }
         return true;
+      }
+
+      // ── SELECTION LOGIC ──────────────────────────────────────
+      function toggleSelect(id, event) {
+        if (event) event.stopPropagation();
+        if (selectedIds.has(id)) selectedIds.delete(id);
+        else selectedIds.add(id);
+        renderSamples();
+        updateBulkBar();
+      }
+
+      function toggleSelectAll() {
+        const filtered = getFilteredSamples();
+        const start = (currentPage - 1) * pageSize;
+        const pagedData = filtered.slice(start, start + pageSize);
+        const pagedIds = pagedData.map(s => s.id);
+        
+        const allSelected = pagedIds.every(id => selectedIds.has(id));
+        if (allSelected) {
+          pagedIds.forEach(id => selectedIds.delete(id));
+        } else {
+          pagedIds.forEach(id => selectedIds.add(id));
+        }
+        renderSamples();
+        updateBulkBar();
+      }
+
+      function clearSelection() {
+        selectedIds.clear();
+        renderSamples();
+        updateBulkBar();
+      }
+
+      function updateBulkBar() {
+        const bar = document.getElementById("bulkBar");
+        const count = document.getElementById("bulkCount");
+        if (selectedIds.size > 0) {
+          count.textContent = `Đã chọn ${selectedIds.size} mẫu`;
+          bar.classList.add("active");
+        } else {
+          bar.classList.remove("active");
+        }
+      }
+
+      async function bulkDelete() {
+        if (selectedIds.size === 0) return;
+        const ids = Array.from(selectedIds);
+        showConfirm(`Bạn có chắc chắn muốn xóa ${ids.length} mẫu đã chọn?`, async () => {
+          showSaving();
+          // Xóa checkpoints trước ( Supabase RLS hoặc Cascade Delete có thể giúp nhưng xóa thủ công cho chắc)
+          const { error: ce } = await db.from("checkpoints").delete().in("sample_id", ids);
+          if (ce) { hideSaving(); showToast("❌ Lỗi xóa checkpoints: " + ce.message, "error"); return; }
+          
+          const { error: se } = await db.from("samples").delete().in("id", ids);
+          hideSaving();
+          
+          if (se) { showToast("❌ Lỗi xóa mẫu: " + se.message, "error"); return; }
+          
+          // Cập nhật local state
+          samples = samples.filter(s => !selectedIds.has(s.id));
+          clearSelection();
+          renderAll();
+          showToast(`🗑️ Đã xóa ${ids.length} mẫu thành công`, "success");
+        });
+      }
+
+      function renderCheckbox(id, isChecked) {
+        return `<div class="selection-checkbox ${isChecked ? 'checked' : ''}" onclick="toggleSelect('${id}', event)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>`;
       }
 
       // --- SUPABASE STORAGE ---
@@ -1146,8 +1269,9 @@
         else if (next.diff <= 2) nextHtml = `<span style="font-size:11.5px;font-weight:700;color:var(--amber-d)">⏰ ${next.diff}d</span>`;
         else nextHtml = `<span style="font-size:11.5px;color:var(--muted)">${formatDate(next.date)}</span>`;
 
-        return `<div onclick="openDetailById('${s.id}')" style="display:grid;grid-template-columns:4px 1fr auto;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;cursor:pointer;transition:.15s;overflow:hidden" onmouseover="this.style.borderColor='var(--teal)';this.style.boxShadow='var(--sh-sm)'" onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow=''">
+        return `<div onclick="openDetailById('${s.id}')" style="display:grid;grid-template-columns:4px 32px 1fr auto;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;cursor:pointer;transition:.15s;overflow:hidden" onmouseover="this.style.borderColor='var(--teal)';this.style.boxShadow='var(--sh-sm)'" onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow=''">
           <div style="background:${acColor};height:100%;min-height:52px"></div>
+          <div class="list-selection-col">${renderCheckbox(s.id, selectedIds.has(s.id))}</div>
           <div class="list-row-grid" style="padding:10px 12px;display:grid;grid-template-columns:200px 90px auto 1fr 100px;gap:10px;align-items:center;min-width:0">
             <div style="min-width:0"><div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.6px;text-transform:uppercase">${s.code}</div><div style="font-size:14px;font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div></div>
             <div class="list-col-date" style="font-size:12px;color:var(--muted)">${formatDate(s.startDate)}</div>
@@ -1199,7 +1323,29 @@
         else if (next.diff <= 2) footerHtml = `<span class="next-urgent">⏰ Còn ${next.diff} ngày · ${next.method} ${next.label}</span>`;
         else footerHtml = `<span class="next-check">KT tiếp: <strong style="color:var(--ink2)">${next.method} ${next.label}</strong> · ${formatDate(next.date)}</span>`;
         
-        return `<div class="sample-card" onclick="openDetailById('${s.id}')"><div class="card-accent ${acMap[st] || ""}"></div><div class="card-header"><div class="card-meta"><div class="card-code">${s.code}</div><div class="card-name">${s.name}</div><div class="card-date"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>${formatDate(s.startDate)}</div></div><span class="status-badge ${badgeMap[st] || "badge-ongoing"}">${labelMap[st] || "—"}</span></div><div class="card-body"><div class="methods-row">${pills}</div><div class="progress-wrap"><div class="progress-label"><span>Tiến độ tổng thể</span><span>${progress}%</span></div><div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div></div></div><div class="card-footer">${footerHtml}</div></div>`;
+        return `<div class="sample-card" onclick="openDetailById('${s.id}')">
+          <div class="card-selection-overlay">${renderCheckbox(s.id, selectedIds.has(s.id))}</div>
+          <div class="card-accent ${acMap[st] || ""}"></div>
+          <div class="card-header">
+            <div class="card-meta">
+              <div class="card-code">${s.code}</div>
+              <div class="card-name">${s.name}</div>
+              <div class="card-date">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                ${formatDate(s.startDate)}
+              </div>
+            </div>
+            <span class="status-badge ${badgeMap[st] || "badge-ongoing"}">${labelMap[st] || "—"}</span>
+          </div>
+          <div class="card-body">
+            <div class="methods-row">${pills}</div>
+            <div class="progress-wrap">
+              <div class="progress-label"><span>Tiến độ tổng thể</span><span>${progress}%</span></div>
+              <div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div>
+            </div>
+          </div>
+          <div class="card-footer">${footerHtml}</div>
+        </div>`;
       }
 
       function renderSamples() {
@@ -1242,8 +1388,18 @@
         } else {
           if (viewMode === "list") {
             grid.className = "samples-grid list-mode";
-            const headerHtml = `<div style="display:grid;grid-template-columns:4px 1fr auto;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;overflow:hidden">
+            const filtered = getFilteredSamples();
+            const start = (currentPage - 1) * pageSize;
+            const pagedData = filtered.slice(start, start + pageSize);
+            const allSelected = pagedData.length > 0 && pagedData.every(s => selectedIds.has(s.id));
+
+            const headerHtml = `<div style="display:grid;grid-template-columns:4px 32px 1fr auto;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;overflow:hidden;align-items:center">
               <div></div>
+              <div class="list-selection-col">
+                <div class="selection-checkbox ${allSelected ? 'checked' : ''}" onclick="toggleSelectAll()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+              </div>
               <div class="list-row-grid" style="padding:7px 12px;display:grid;grid-template-columns:200px 90px auto 1fr 100px;gap:10px;font-size:11px;font-weight:700;color:var(--subtle);text-transform:uppercase;letter-spacing:.5px">
                 <div>Tên mẫu</div><div class="list-col-date">Ngày BĐ</div><div class="list-col-methods">PP</div><div class="list-col-progress">Tiến độ</div><div style="text-align:right">KT tiếp</div>
               </div>
