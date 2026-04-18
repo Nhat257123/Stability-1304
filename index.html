@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <title>StabilityLab – Theo dõi độ ổn định sản phẩm</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -2060,6 +2060,115 @@
       border-color: var(--teal) !important;
       box-shadow: 0 0 0 3px rgba(13,148,136,0.12);
     }
+
+    /* ── MOBILE OPTIMIZATION ── */
+    @media (max-width: 768px) {
+      /* Header gọn hơn */
+      .header { padding: 0 14px; gap: 8px; }
+      .header-right { gap: 8px; }
+      /* Ẩn text "Thêm mẫu", chỉ hiện icon */
+      .btn-add-main .btn-add-text { display: none; }
+      .btn-add-main { padding: 0 12px; }
+
+      /* Main padding nhỏ lại */
+      .main { padding: 16px 12px 80px; }
+
+      /* Stats 2 cột thay vì 1 cột cho thoáng */
+      .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px; margin-bottom: 16px; }
+      .stat-card { padding: 14px; }
+      .stat-num { font-size: 24px !important; }
+
+      /* Toolbar */
+      .toolbar { margin-bottom: 14px; gap: 10px; }
+      .filter-tabs { flex-wrap: wrap; }
+      .filter-tab { padding: 6px 10px; font-size: 12px; }
+
+      /* Method filter pills nhỏ hơn */
+      .method-filter-row { gap: 4px; margin-top: 8px; }
+      .mf-btn { padding: 4px 10px !important; font-size: 11px !important; }
+
+      /* Section header */
+      .section-title { font-size: 15px; }
+
+      /* Cards */
+      .samples-grid { grid-template-columns: 1fr; gap: 10px; }
+      .sample-card { border-radius: var(--r); }
+
+      /* Modal overlay padding */
+      .overlay { padding: 12px 8px; }
+      .modal-header { padding: 14px 16px 12px; }
+      .modal-body { padding: 16px; }
+      .modal-footer { padding: 12px 16px; }
+      .modal-title { font-size: 15px; }
+
+      /* Detail modal header */
+      #detailOverlay .overlay { padding: 0; }
+      #detailOverlay .modal { border-radius: 0; min-height: 100vh; margin: 0; }
+
+      /* Form inputs */
+      .form-input, .form-textarea, .form-select {
+        font-size: 16px !important; /* tránh zoom iOS khi focus */
+      }
+
+      /* Activity panel */
+      .activity-panel { padding: 16px 12px 60px; }
+
+      /* Settings drawer full-width */
+      .settings-drawer { width: 100vw; }
+
+      /* Chart section */
+      #chartSection { padding: 14px 12px; margin-bottom: 16px; }
+      .chart-bars { height: 90px; gap: 5px; }
+
+      /* Login */
+      .login-box { padding: 28px 20px; border-radius: 18px; }
+    }
+
+    @media (max-width: 480px) {
+      /* Stats 2 cột nhỏ */
+      .stat-card { padding: 12px; }
+      .stat-num { font-size: 20px !important; }
+      .stat-label { font-size: 11px; }
+      .stat-icon-wrap { width: 34px !important; height: 34px !important; }
+      .stat-icon-wrap svg { width: 16px !important; height: 16px !important; }
+
+      /* Filter tabs cuộn ngang nếu quá nhiều */
+      .filter-tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+      .filter-tab { flex-shrink: 0; }
+
+      /* Method filter cuộn ngang */
+      .method-filter-row { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+      .mf-btn { flex-shrink: 0; }
+
+      /* Toolbar actions */
+      .toolbar-actions { gap: 6px; }
+      .toolbar-actions button { padding: 0 10px !important; font-size: 12px !important; }
+
+      /* Pagination */
+      .pagination { gap: 4px; }
+      .page-btn { min-width: 30px !important; height: 30px !important; font-size: 12px !important; }
+
+      /* Ẩn logo text ở header nếu quá chật */
+      .brand-text p { display: none; }
+
+      /* Modal full-screen */
+      .overlay { padding: 0; align-items: flex-end; }
+      .modal { border-radius: var(--r-lg) var(--r-lg) 0 0; max-height: 92vh; overflow-y: auto; margin: 0; }
+      .modal-header { padding: 14px 14px 10px; }
+      .modal-body { padding: 12px 14px; }
+      .modal-footer { padding: 10px 14px; }
+
+      /* Detail modal full screen */
+      #detailOverlay .modal { border-radius: 0; max-height: 100vh; }
+
+      /* Section title */
+      .section-title { font-size: 14px; }
+      .section-header { margin-bottom: 10px; }
+
+      /* Settings rows stack vertically */
+      .settings-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .settings-row select { width: 100%; }
+    }
   </style>
 </head>
 
@@ -2220,7 +2329,7 @@
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            <span class="btn-label">Thêm mẫu</span>
+            <span class="btn-add-text">Thêm mẫu</span>
           </button>
         </div>
       </header>
