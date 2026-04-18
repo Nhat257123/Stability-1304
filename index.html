@@ -2118,7 +2118,7 @@
 
       /* Chart section */
       #chartSection { padding: 14px 12px; margin-bottom: 16px; }
-      .chart-bars { height: 90px; gap: 5px; }
+      .chart-bars { height: 130px; gap: 5px; overflow: hidden; }
 
       /* Login */
       .login-box { padding: 28px 20px; border-radius: 18px; }
@@ -4401,7 +4401,8 @@
         });
       });
       const maxVal = Math.max(1, ...months.map(m => m.upcoming + m.overdue));
-      const BAR_MAX_H = 90;
+      const containerH = barsEl.clientHeight || 120;
+      const BAR_MAX_H = Math.max(20, containerH - 50);
       const mnNames = ["Th.1","Th.2","Th.3","Th.4","Th.5","Th.6","Th.7","Th.8","Th.9","Th.10","Th.11","Th.12"];
       barsEl.innerHTML = months.map(m => {
         const total = m.upcoming + m.overdue;
