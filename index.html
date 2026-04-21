@@ -3400,10 +3400,10 @@
       let ongoing = 0, done = 0, soon = 0, overdue = 0;
       samples.forEach((s) => {
         const st = getSampleStatus(s);
-        if (st === "done") done++;
-        else if (st === "overdue") { overdue++; ongoing++; }
-        else if (st === "soon") { soon++; ongoing++; }
-        else ongoing++; // pure ongoing
+        if (st === "done")         done++;
+        else if (st === "overdue") overdue++;
+        else if (st === "soon")    soon++;
+        else                       ongoing++;
       });
       document.getElementById("statTotal").textContent = samples.length;
       document.getElementById("statOngoing").textContent = ongoing;
