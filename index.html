@@ -3098,15 +3098,15 @@
         if (ce) { hideSaving(); showToast("❌ Lỗi xóa checkpoints: " + ce.message, "error"); return; }
 
         const { error: se } = await db.from("samples").delete().in("id", ids);
-        hideSaving();
 
-        if (se) { showToast("❌ Lỗi xóa mẫu: " + se.message, "error"); return; }
+        if (se) { hideSaving(); showToast("❌ Lỗi xóa mẫu: " + se.message, "error"); return; }
 
         // Cập nhật local state
         logActivity("Xóa hàng loạt", `${ids.length} mẫu`);
         samples = samples.filter(s => !selectedIds.has(s.id));
         clearSelection();
         renderAll();
+        hideSaving();
         showToast(`🗑️ Đã xóa ${ids.length} mẫu thành công`, "success");
       });
     }
