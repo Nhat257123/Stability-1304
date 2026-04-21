@@ -4125,11 +4125,11 @@
 
       const wb = XLSX.utils.book_new();
 
-      // Sheet Tổng hợp
+      // Sheet Tổng hợp — tất cả mẫu
       const sumHeaders = ["STT", "Mã mẫu", "Tên mẫu", "Ngày bắt đầu", "Trạng thái", "Tiến độ (%)", "Phương pháp", "Ngày KT tiếp theo", "Mốc tiếp theo"];
+      const stMap = { done: "Hoàn thành", overdue: "Quá hạn", soon: "Sắp đến hạn", ongoing: "Đang theo dõi" };
       const sumRows = samples.map((s, i) => {
         const st = getSampleStatus(s), next = getNextCheck(s);
-        const stMap = { done: "Hoàn thành", overdue: "Quá hạn", soon: "Sắp đến hạn", ongoing: "Đang theo dõi" };
         return [
           i + 1, s.code, s.name, formatDate(s.startDate), stMap[st] || "—", getSampleProgress(s),
           Object.keys(s.methods).map((mk) => METHODS[mk].short).join(", "),
@@ -4140,75 +4140,77 @@
       wsSum["!cols"] = [{ wch: 5 }, { wch: 14 }, { wch: 28 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 22 }, { wch: 16 }, { wch: 20 }];
       XLSX.utils.book_append_sheet(wb, wsSum, "Tổng hợp");
 
-      // Các Sheet M1-M5
-      const sheetDefs = [
-        { key: "m1", name: "M1-Lao hoa cap toc", fixedExtra: ["Khay"], getItems: (md) => md.checkpoints || [], getLabel: (item, i) => item.label || `Mốc ${i + 1}`, getDate: (item) => item.scheduledDate, getTheo: (item) => item.theoreticalDate || "" },
-        { key: "m2", name: "M2-Phoi sang", fixedExtra: [], getItems: (md) => md.checkpoints || [], getLabel: (item, i) => item.label || `Mốc ${i + 1}`, getDate: (item) => item.scheduledDate, getTheo: () => "" },
-        { key: "m3", name: "M3-Chu ky nhiet", fixedExtra: [], getItems: (md) => md.cycles || [], getLabel: (item, i) => `Chu kỳ ${item.cycleNum || i + 1}`, getDate: (item) => item.scheduledDate, getTheo: () => "" },
-        { key: "m4", name: "M4-Freeze-Thaw", fixedExtra: [], getItems: (md) => md.cycles || [], getLabel: (item, i) => `Chu kỳ ${item.cycleNum || i + 1}`, getDate: (item) => item.scheduledDate, getTheo: () => "" },
-        { key: "m5", name: "M5-DK phong", fixedExtra: [], getItems: (md) => md.checkpoints || [], getLabel: (item, i) => item.label || `Mốc ${i + 1}`, getDate: (item) => item.scheduledDate, getTheo: () => "" },
-      ];
-
-      sheetDefs.forEach((def) => {
-        const mSamples = samples.filter((s) => s.methods && s.methods[def.key]);
-        const ws = buildMethodSheet(def, mSamples);
-        XLSX.utils.book_append_sheet(wb, ws, def.name);
+      // Mỗi mẫu đã hoàn thành → 1 sheet riêng chứa kết quả tất cả phương pháp
+      const doneSamples = samples.filter((s) => getSampleStatus(s) === "done");
+      doneSamples.forEach((s) => {
+        const ws = buildSampleSheet(s);
+        // Tên sheet: mã mẫu (hoặc tên mẫu), giới hạn 31 ký tự, bỏ ký tự đặc biệt
+        const sheetName = (s.code || s.name).replace(/[\\\/\?\*\[\]:]/g, "").substring(0, 31);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
       });
 
       const fname = `StabilityLab_${dateStr(today())}.xlsx`;
       XLSX.writeFile(wb, fname);
-      showToast("📊 Đã xuất file Excel — " + fname, "success");
+      const doneCount = doneSamples.length;
+      showToast(`📊 Đã xuất Excel — ${doneCount} mẫu hoàn thành`, "success");
     }
 
-    function buildMethodSheet(def, mSamples) {
-      const m = METHODS[def.key];
-      let maxItems = 0;
-      mSamples.forEach((s) => { maxItems = Math.max(maxItems, def.getItems(s.methods[def.key]).length); });
-      if (maxItems === 0) maxItems = m.type === "timepoint" ? (m.checkpoints || []).length : m.totalCycles || 6;
+    // Tạo sheet cho 1 mẫu đã hoàn thành: thông tin mẫu + kết quả từng phương pháp
+    function buildSampleSheet(s) {
+      const rows = [];
+      const merges = [];
+      const NUM_COLS = 5; // Mốc | Ngày LT | Ngày KT | Kết quả | Ghi chú
 
-      let milestoneLabels = [];
-      if (mSamples.length) {
-        const firstItems = def.getItems(mSamples[0].methods[def.key]);
-        milestoneLabels = firstItems.map((item, i) => def.getLabel(item, i));
-      }
-      while (milestoneLabels.length < maxItems) milestoneLabels.push(`${def.key === "m3" || def.key === "m4" ? "Chu kỳ" : "Mốc"} ${milestoneLabels.length + 1}`);
+      // Thông tin mẫu
+      rows.push(["Mã mẫu:", s.code || "—", "", "Tên mẫu:", s.name]);
+      rows.push(["Ngày bắt đầu:", formatDate(s.startDate), "", "Ghi chú:", s.notes || ""]);
+      rows.push(["Phương pháp:", Object.keys(s.methods).map((mk) => METHODS[mk].short).join(", "), "", "", ""]);
+      rows.push([]); // dòng trống ngăn cách
 
-      const fixedCols = ["STT", "Mã mẫu", "Tên mẫu", "Ngày bắt đầu", ...def.fixedExtra];
-      const nFixed = fixedCols.length;
+      const methodDefs = [
+        { key: "m1", getItems: (md) => md.checkpoints || [], getLabel: (item, i) => item.label || `Mốc ${i + 1}`, hasTheo: true },
+        { key: "m2", getItems: (md) => md.checkpoints || [], getLabel: (item, i) => item.label || `Mốc ${i + 1}`, hasTheo: false },
+        { key: "m3", getItems: (md) => md.cycles || [],      getLabel: (item, i) => `Chu kỳ ${item.cycleNum || i + 1}`, hasTheo: false },
+        { key: "m4", getItems: (md) => md.cycles || [],      getLabel: (item, i) => `Chu kỳ ${item.cycleNum || i + 1}`, hasTheo: false },
+        { key: "m5", getItems: (md) => md.checkpoints || [], getLabel: (item, i) => item.label || `Mốc ${i + 1}`, hasTheo: false },
+      ];
 
-      const h1 = [...fixedCols, ...milestoneLabels.flatMap((l) => [l, "", ""])];
-      const h2 = [...Array(nFixed).fill(""), ...milestoneLabels.flatMap(() => ["Ngày KT", "Kết quả", "Ghi chú"])];
-      const extraRow = def.key === "m1" ? [...Array(nFixed).fill(""), ...milestoneLabels.flatMap(() => ["(Ngày lý thuyết)", "", ""])] : null;
+      methodDefs.forEach((def) => {
+        if (!s.methods[def.key]) return; // mẫu không có phương pháp này thì bỏ qua
+        const md = s.methods[def.key];
+        const items = def.getItems(md);
+        const method = METHODS[def.key];
 
-      const dataRows = mSamples.map((s, idx) => {
-        const md = s.methods[def.key], items = def.getItems(md);
-        const trayLabel = def.key === "m1" ? (md.trayInfo || getTrayInfo(s.startDate)).label : "";
-        const fixedData = def.key === "m1" ? [idx + 1, s.code, s.name, formatDate(s.startDate), trayLabel] : [idx + 1, s.code, s.name, formatDate(s.startDate)];
+        // Tiêu đề phương pháp (gộp toàn bộ hàng ngang)
+        const titleRow = rows.length;
+        rows.push([`${method.short} — ${method.label}`, "", "", "", ""]);
+        merges.push({ s: { r: titleRow, c: 0 }, e: { r: titleRow, c: NUM_COLS - 1 } });
 
-        const cpData = milestoneLabels.flatMap((_, i) => {
-          const item = items[i];
-          if (!item) return ["", "", ""];
+        // Header cột
+        if (def.hasTheo) {
+          rows.push(["Mốc", "Ngày lý thuyết", "Ngày KT thực tế", "Kết quả", "Ghi chú"]);
+        } else {
+          rows.push(["Mốc", "Ngày KT", "", "Kết quả", "Ghi chú"]);
+        }
+
+        // Dữ liệu từng mốc / chu kỳ
+        items.forEach((item, i) => {
+          const label = def.getLabel(item, i);
           const kq = item.status === "pass" ? "Đạt" : item.status === "fail" ? "Không đạt" : "Chưa KT";
-          const ngayKt = def.key === "m1" && item.theoreticalDate && item.theoreticalDate !== item.scheduledDate
-            ? `${formatDate(item.scheduledDate)} (LT: ${formatDate(item.theoreticalDate)})`
-            : formatDate(def.getDate(item));
-          return [ngayKt, kq, item.notes || ""];
+          if (def.hasTheo) {
+            rows.push([label, formatDate(item.theoreticalDate), formatDate(item.scheduledDate), kq, item.notes || ""]);
+          } else {
+            rows.push([label, formatDate(item.scheduledDate), "", kq, item.notes || ""]);
+          }
         });
-        return [...fixedData, ...cpData];
+
+        rows.push([]); // dòng trống sau mỗi phương pháp
       });
 
-      const aoa = extraRow ? [h1, h2, extraRow, ...dataRows] : [h1, h2, ...dataRows];
-      const ws = XLSX.utils.aoa_to_sheet(aoa);
-
-      ws["!merges"] = [];
-      milestoneLabels.forEach((_, i) => { const c = nFixed + i * 3; ws["!merges"].push({ s: { r: 0, c }, e: { r: 0, c: c + 2 } }); });
-
-      const colW = [{ wch: 5 }, { wch: 14 }, { wch: 28 }, { wch: 14 }];
-      if (def.key === "m1") colW.push({ wch: 10 });
-      milestoneLabels.forEach(() => { colW.push({ wch: 30 }, { wch: 12 }, { wch: 28 }); });
-      ws["!cols"] = colW;
-      ws["!freeze"] = { xSplit: nFixed, ySplit: extraRow ? 3 : 2 };
-
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws["!merges"] = merges;
+      ws["!cols"] = [{ wch: 22 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 32 }];
+      ws["!freeze"] = { xSplit: 0, ySplit: 3 }; // đóng băng 3 dòng header mẫu
       return ws;
     }
 
