@@ -4,7 +4,8 @@ const { Resend } = require('resend');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const RECIPIENT_EMAIL = process.env.RECIPIENT_EMAIL || "quangnhat2572000@gmail.com";
+const RECIPIENT_EMAILS = (process.env.RECIPIENT_EMAILS || "quangnhat2572000@gmail.com")
+  .split(',').map(e => e.trim()).filter(Boolean);
 const LOOKAHEAD_DAYS = 3;
 
 const METHODS = {
@@ -123,15 +124,18 @@ async function run() {
       </div>
     </div>`;
 
-  const { error: emailError } = await resend.emails.send({
-    from: 'StabilityLab <onboarding@resend.dev>',
-    to: RECIPIENT_EMAIL,
-    subject: `[StabilityLab] ${overdue.length ? `⚠️ ${overdue.length} quá hạn · ` : ''}${upcoming.length} sắp KT — ${formatDate(todayStr)}`,
-    html: emailHtml,
-  });
+  const subject = `[StabilityLab] ${overdue.length ? `⚠️ ${overdue.length} quá hạn · ` : ''}${upcoming.length} sắp KT — ${formatDate(todayStr)}`;
 
-  if (emailError) throw emailError;
-  console.log("✅ Email đã được gửi thành công!");
+  for (const email of RECIPIENT_EMAILS) {
+    const { error: emailError } = await resend.emails.send({
+      from: 'StabilityLab <onboarding@resend.dev>',
+      to: email,
+      subject,
+      html: emailHtml,
+    });
+    if (emailError) throw emailError;
+    console.log(`✅ Email đã gửi tới ${email}`);
+  }
 }
 
 run().catch(err => {
