@@ -21,12 +21,13 @@ jobs:
           node-version: '22'
 
       - name: Install Dependencies
-        run: npm install @supabase/supabase-js resend
+        run: npm install @supabase/supabase-js nodemailer
 
       - name: Run Daily Report Script
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_PASS: ${{ secrets.GMAIL_PASS }}
           RECIPIENT_EMAILS: ${{ secrets.RECIPIENT_EMAILS }}
         run: node scripts/daily_report.js

@@ -1,11 +1,19 @@
 const { createClient } = require('@supabase/supabase-js');
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const resend = new Resend(process.env.RESEND_API_KEY);
 
-const RECIPIENT_EMAILS = (process.env.RECIPIENT_EMAILS || "quangnhat2572000@gmail.com")
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_PASS,
+  },
+});
+
+const RECIPIENT_EMAILS = (process.env.RECIPIENT_EMAILS || process.env.GMAIL_USER)
   .split(',').map(e => e.trim()).filter(Boolean);
+
 const LOOKAHEAD_DAYS = 3;
 
 const METHODS = {
@@ -23,7 +31,6 @@ async function run() {
   const lookaheadStr = new Date(Date.now() + LOOKAHEAD_DAYS * 86400000).toISOString().split('T')[0];
   console.log(`📅 Ngày kiểm tra: ${todayStr} | Nhìn trước: ${lookaheadStr}`);
 
-  // Chỉ lấy checkpoint M1 pending đã quá hạn hoặc sắp đến hạn
   const { data: checkpoints, error: cpError } = await supabase
     .from('checkpoints')
     .select('*')
@@ -51,7 +58,6 @@ async function run() {
 
   const formatDate = (d) => new Date(d + 'T00:00:00').toLocaleDateString("vi-VN");
 
-  // Phân loại: quá hạn vs sắp đến
   const overdue = checkpoints.filter(cp => cp.scheduled_date < todayStr);
   const upcoming = checkpoints.filter(cp => cp.scheduled_date >= todayStr);
 
@@ -105,7 +111,7 @@ async function run() {
           <div style="font-size:14px;opacity:.9">Báo cáo kiểm tra mẫu hàng ngày</div>
         </div>
         <div style="padding:28px 32px">
-          <h2 style="font-size:16px;color:#0f172a;margin-bottom:6px">Chào bạn Nhật,</h2>
+          <h2 style="font-size:16px;color:#0f172a;margin-bottom:6px">Xin chào,</h2>
           <p style="color:#475569;font-size:14px;line-height:1.6;margin-bottom:24px">
             Ngày <strong>${formatDate(todayStr)}</strong> — tổng cộng <strong>${checkpoints.length} checkpoint</strong> cần xử lý:
             ${overdue.length ? `<span style="color:#e11d48;font-weight:700">${overdue.length} quá hạn</span>` : ''}
@@ -127,13 +133,12 @@ async function run() {
   const subject = `[StabilityLab] ${overdue.length ? `⚠️ ${overdue.length} quá hạn · ` : ''}${upcoming.length} sắp KT — ${formatDate(todayStr)}`;
 
   for (const email of RECIPIENT_EMAILS) {
-    const { error: emailError } = await resend.emails.send({
-      from: 'StabilityLab <onboarding@resend.dev>',
+    await transporter.sendMail({
+      from: `"StabilityLab" <${process.env.GMAIL_USER}>`,
       to: email,
       subject,
       html: emailHtml,
     });
-    if (emailError) throw emailError;
     console.log(`✅ Email đã gửi tới ${email}`);
   }
 }
